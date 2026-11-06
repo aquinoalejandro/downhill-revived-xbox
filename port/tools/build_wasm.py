@@ -863,7 +863,7 @@ def wasm_link(objs, out, allow_all, host_syms):
 
 def wasm_link_once(objs, out, allow_all, host_syms):
     rsp = os.path.join(OUT, 'objs.rsp')
-    write(rsp, ''.join(o.replace(os.sep, '/') + '\n' for o in objs))
+    write(rsp, ''.join('"' + o.replace(os.sep, '/') + '"\n' for o in objs))
     cmd = ['wasm-ld', '--no-entry', '--no-stack-first', '--global-base=%d' % STACK_BASE,
            '-z', 'stack-size=%d' % STACK_SIZE, '--initial-memory=%d' % INITIAL_MEMORY,
            '--max-memory=%d' % MAX_MEMORY, '--export=__main_argc_argv', '--export=__stack_pointer',
