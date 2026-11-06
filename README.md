@@ -87,7 +87,32 @@ To build the Xbox UWP package yourself on Windows 10/11:
    ```powershell
    python port/tools/package_xbox.py
    ```
-The output package `build/xbox-x64/DownhillRevived-xbox.appx` and `dev_cert.cer` will be ready for deployment.
+The output package `build/xbox-x64/DownhillRevived-xbox.appx` and loose folder layout `build/xbox-x64/package/` will be generated.
+
+### Deployment to Xbox One / Series (Dev Mode)
+
+To deploy the game to your console without certificate trust issues (`0x800B0109`):
+
+#### Method 1: Automated deployment via `deploy_xbox.py` (Recommended)
+Make sure your Xbox is in **Dev Home** and note the console IP. If required, generate a pairing PIN in **Dev Home > Remote Access Settings**.
+```powershell
+python port/tools/deploy_xbox.py --ip <XBOX_IP> [--pin <PAIRING_PIN>]
+```
+This transfers and registers the loose package layout directly onto the console without requiring signed certificate installation.
+
+#### Method 2: Via Xbox Device Portal (Register from Network Share)
+1. On your PC, share the folder `build\xbox-x64\package` over your local network (Right click > Properties > Sharing > Advanced Sharing > Share this folder).
+2. Open your browser and navigate to the **Xbox Device Portal** (`https://<XBOX_IP>:11443`).
+3. Under **Apps Manager**, select **Register from Network Share**.
+4. Enter your PC network path (e.g., `\\YOUR-PC-NAME\package` or `\\<PC_IP>\package`) and provide your Windows credentials.
+5. Click **Register**.
+
+#### Post-Installation Setup on Xbox
+1. In **Dev Home** on your console, highlight **Downhill Revived**.
+2. Press the **View button** (two overlapping squares) on your controller and select **Manage app**.
+3. Change **App type** from *App* to **Game** (this grants elevated memory and access to external USB storage).
+4. Copy your PS2 disc dump (`SCUS-97177.iso` or `downhill.iso`) either to the app's `LocalState` directory via Device Portal File Explorer (`DevelopmentFiles\WindowsApps\...LocalState`) or place it on the root of an NTFS USB drive formatted for Xbox Dev Mode.
+5. Launch and enjoy!
 
 ---
 
