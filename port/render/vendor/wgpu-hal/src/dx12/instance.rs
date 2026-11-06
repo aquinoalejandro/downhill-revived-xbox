@@ -156,8 +156,22 @@ impl crate::Instance for super::Instance {
                     options: self.options.clone(),
                 })
             }
+            raw_window_handle::RawWindowHandle::WinRt(handle) => {
+                use windows_core::Interface;
+                let raw_ptr = handle.core_window.as_ptr();
+                let unk = unsafe { windows_core::IUnknown::from_raw_borrowed(&raw_ptr) }
+                    .expect("CoreWindow COM pointer should not be NULL");
+                Ok(super::Surface {
+                    factory: self.factory.clone(),
+                    factory_media: self.factory_media.clone(),
+                    target: SurfaceTarget::CoreWindow(unk.clone()),
+                    supports_allow_tearing: false,
+                    swap_chain: RwLock::new(None),
+                    options: self.options.clone(),
+                })
+            }
             _ => Err(crate::InstanceError::new(format!(
-                "window handle {window_handle:?} is not a Win32 handle"
+                "window handle {window_handle:?} is not a Win32 or WinRT handle"
             ))),
         }
     }

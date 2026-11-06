@@ -615,6 +615,7 @@ enum SurfaceTarget {
     /// Borrowed, lifetime externally managed
     SurfaceHandle(Foundation::HANDLE),
     SwapChainPanel(types::ISwapChainPanelNative),
+    CoreWindow(windows_core::IUnknown),
 }
 
 pub struct Surface {
@@ -1422,6 +1423,17 @@ impl crate::Surface for Surface {
                             )
                         }
                     }
+                    SurfaceTarget::CoreWindow(ref core_window) => {
+                        profiling::scope!("IDXGIFactory2::CreateSwapChainForCoreWindow");
+                        unsafe {
+                            self.factory.CreateSwapChainForCoreWindow(
+                                &device.present_queue,
+                                core_window,
+                                &desc,
+                                None,
+                            )
+                        }
+                    }
                 };
 
                 let swap_chain1 = swap_chain1.map_err(|err| {
@@ -1430,7 +1442,7 @@ impl crate::Surface for Surface {
                 })?;
 
                 match &self.target {
-                    SurfaceTarget::WndHandle(_) | SurfaceTarget::SurfaceHandle(_) => {}
+                    SurfaceTarget::WndHandle(_) | SurfaceTarget::SurfaceHandle(_) | SurfaceTarget::CoreWindow(_) => {}
                     SurfaceTarget::VisualFromWndHandle {
                         handle,
                         dcomp_state,
@@ -1498,7 +1510,8 @@ impl crate::Surface for Surface {
             SurfaceTarget::Visual(_)
             | SurfaceTarget::VisualFromWndHandle { .. }
             | SurfaceTarget::SurfaceHandle(_)
-            | SurfaceTarget::SwapChainPanel(_) => {}
+            | SurfaceTarget::SwapChainPanel(_)
+            | SurfaceTarget::CoreWindow(_) => {}
         }
 
         unsafe { swap_chain.SetMaximumFrameLatency(config.maximum_frame_latency) }

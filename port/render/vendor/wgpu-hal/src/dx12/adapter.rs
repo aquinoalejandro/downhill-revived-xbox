@@ -1269,7 +1269,8 @@ impl crate::Adapter for super::Adapter {
                 }
                 SurfaceTarget::Visual(_)
                 | SurfaceTarget::SurfaceHandle(_)
-                | SurfaceTarget::SwapChainPanel(_) => None,
+                | SurfaceTarget::SwapChainPanel(_)
+                | SurfaceTarget::CoreWindow(_) => None,
             }
         };
 
@@ -1295,7 +1296,7 @@ impl crate::Adapter for super::Adapter {
                 | wgt::TextureUses::COPY_DST,
             present_modes,
             composite_alpha_modes: match surface.target {
-                SurfaceTarget::WndHandle(_) => vec![wgt::CompositeAlphaMode::Opaque],
+                SurfaceTarget::WndHandle(_) | SurfaceTarget::CoreWindow(_) => vec![wgt::CompositeAlphaMode::Opaque],
                 SurfaceTarget::Visual(_)
                 | SurfaceTarget::VisualFromWndHandle { .. }
                 | SurfaceTarget::SurfaceHandle(_)

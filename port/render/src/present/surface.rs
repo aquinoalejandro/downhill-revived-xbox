@@ -105,7 +105,7 @@ fn write_pixels(gpu: &Gpu, texture: &wgpu::Texture, pixels: &[u32], w: u32, h: u
 
 /// The window kinds this build takes (`dhdr_surface_create`): its platform's.
 #[cfg(windows)]
-const PLATFORM_KINDS: &[u32] = &[DHDR_WINDOW_WIN32];
+const PLATFORM_KINDS: &[u32] = &[DHDR_WINDOW_WIN32, DHDR_WINDOW_CORE_WINDOW];
 #[cfg(target_os = "android")]
 const PLATFORM_KINDS: &[u32] = &[DHDR_WINDOW_ANDROID];
 #[cfg(target_vendor = "apple")]
@@ -171,6 +171,10 @@ impl Surface {
                         let mut w = raw_window_handle::Win32WindowHandle::new(hwnd);
                         w.hinstance = std::num::NonZeroIsize::new(window.b as isize);
                         (D::Windows(raw_window_handle::WindowsDisplayHandle::new()), W::Win32(w))
+                    }
+                    DHDR_WINDOW_CORE_WINDOW => {
+                        let ptr = std::ptr::NonNull::new(window.a as usize as *mut std::ffi::c_void).ok_or("NULL CoreWindow")?;
+                        (D::Windows(raw_window_handle::WindowsDisplayHandle::new()), W::WinRt(raw_window_handle::WinRtWindowHandle::new(ptr)))
                     }
                     // a = the ANativeWindow (SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER), on Vulkan
                     // (finding 091); the Vulkan surface holds its own reference to it

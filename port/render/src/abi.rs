@@ -98,6 +98,7 @@ pub const DHDR_WINDOW_XLIB: u32 = 3;
 pub const DHDR_WINDOW_WAYLAND: u32 = 4;
 pub const DHDR_WINDOW_ANDROID: u32 = 5;
 pub const DHDR_WINDOW_METAL_LAYER: u32 = 6;
+pub const DHDR_WINDOW_CORE_WINDOW: u32 = 7;
 
 pub const DHDR_PRESENT_NO_TEARING: u32 = 1;
 pub const DHDR_PRESENT_VSYNC: u32 = 2;

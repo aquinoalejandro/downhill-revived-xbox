@@ -128,7 +128,7 @@ DHDR_FN(dhdr_exact_stats)   void dhdr_exact_stats(const DhdrExact *x, DhdrExactS
 
 typedef struct DhdrSurface DhdrSurface;
 enum { DHDR_WINDOW_WIN32 = 1, DHDR_WINDOW_WEB_CANVAS = 2, DHDR_WINDOW_XLIB = 3, DHDR_WINDOW_WAYLAND = 4,
-       DHDR_WINDOW_ANDROID = 5, DHDR_WINDOW_METAL_LAYER = 6 };   /* 2: dhdr_web_surface only; each native build
+       DHDR_WINDOW_ANDROID = 5, DHDR_WINDOW_METAL_LAYER = 6, DHDR_WINDOW_CORE_WINDOW = 7 };   /* 2: dhdr_web_surface only; each native build
                                                                    takes its platform's: Windows 1, Linux 3 and 4,
                                                                    Android 5, Apple 6 (others refused: NULL) */
 typedef struct DhdrWindow {
