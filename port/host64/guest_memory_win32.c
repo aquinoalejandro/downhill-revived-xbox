@@ -13,10 +13,17 @@ void os_fail(const char *what) {
     fprintf(stderr,"host64 memory: %s (%lu)\n",what,GetLastError()); abort();
 }
 uintptr_t os_reserve(void) {
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+    ram=CreateFileMappingFromApp(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0x2000000,NULL);
+    if (!ram) return 0;
+    uintptr_t base=(uintptr_t)VirtualAlloc2FromApp(NULL,NULL,0x200000000ull,
+        MEM_RESERVE|MEM_RESERVE_PLACEHOLDER,PAGE_NOACCESS,NULL,0);
+#else
     ram=CreateFileMappingW(INVALID_HANDLE_VALUE,NULL,PAGE_READWRITE,0,0x2000000,NULL);
     if (!ram) return 0;
     uintptr_t base=(uintptr_t)VirtualAlloc2(NULL,NULL,0x200000000ull,
         MEM_RESERVE|MEM_RESERVE_PLACEHOLDER,PAGE_NOACCESS,NULL,0);
+#endif
     if (!base) { CloseHandle(ram); ram=NULL; }
     return base;
 }
@@ -24,15 +31,29 @@ int os_split(uintptr_t at,uint64_t size) {
     return VirtualFree((void *)at,(SIZE_T)size,MEM_RELEASE|MEM_PRESERVE_PLACEHOLDER);
 }
 int os_map_ram(uintptr_t at,uint64_t size,uint64_t file_offset) {
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+    return MapViewOfFile3FromApp(ram,GetCurrentProcess(),(void *)at,file_offset,
+        (SIZE_T)size,MEM_REPLACE_PLACEHOLDER,PAGE_READWRITE,NULL,0)!=NULL;
+#else
     return MapViewOfFile3(ram,GetCurrentProcess(),(void *)at,file_offset,
         (SIZE_T)size,MEM_REPLACE_PLACEHOLDER,PAGE_READWRITE,NULL,0)!=NULL;
+#endif
 }
 int os_private(uintptr_t at,uint64_t size) {
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+    return VirtualAlloc2FromApp(NULL,(void *)at,(SIZE_T)size,
+        MEM_RESERVE|MEM_REPLACE_PLACEHOLDER,PAGE_NOACCESS,NULL,0)!=NULL;
+#else
     return VirtualAlloc2(NULL,(void *)at,(SIZE_T)size,
         MEM_RESERVE|MEM_REPLACE_PLACEHOLDER,PAGE_NOACCESS,NULL,0)!=NULL;
+#endif
 }
 int os_commit(uintptr_t at,uint64_t size) {
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+    return VirtualAllocFromApp((void *)at,(SIZE_T)size,MEM_COMMIT,PAGE_READWRITE)!=NULL;
+#else
     return VirtualAlloc((void *)at,(SIZE_T)size,MEM_COMMIT,PAGE_READWRITE)!=NULL;
+#endif
 }
 void os_decommit(const void *at,uint64_t size) {
     VirtualFree((void *)at,(SIZE_T)size,MEM_DECOMMIT);

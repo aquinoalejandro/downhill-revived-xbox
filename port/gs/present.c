@@ -37,7 +37,10 @@ typedef struct { int x, y, w, h, borderless; } WindowSpec;
 static void display_of(SDL_Window *w, SDL_Rect *full, SDL_Rect *usable);
 
 /* ---- the platform part: SDL's window as the renderer's window ---- */
-#if defined(_WIN32)
+#if defined(SDL_PLATFORM_WINRT)
+#define WINDOW_FLAGS 0
+#define FIXED_SCREEN 1
+#elif defined(_WIN32)
 #define WINDOW_FLAGS 0
 #define FIXED_SCREEN 0
 /* Laptops with two graphics chips run a program they don't know on the integrated one; these
@@ -65,7 +68,11 @@ static void window_target(void *unused)
     SDL_PropertiesID props = SDL_GetWindowProperties(sdl_window);
     memset(&target, 0, sizeof target);
     target.size = gs_window_pixels;
-#if defined(_WIN32)
+#if defined(SDL_PLATFORM_WINRT)
+    target.kind = GS_WINDOW_CORE_WINDOW;
+    target.a = (uintptr_t)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WINRT_WINDOW_POINTER, NULL);
+    target.b = 0;
+#elif defined(_WIN32)
     target.kind = GS_WINDOW_WIN32;
     target.a = (uintptr_t)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
     target.b = (uintptr_t)SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL);
@@ -113,7 +120,7 @@ static void window_icon(void)
    cover the screen. Main thread. */
 static void fill_monitor(void)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(SDL_PLATFORM_WINRT)
     SDL_Rect monitor, usable;
     display_of(sdl_window, &monitor, &usable);
     SDL_SetWindowBordered(sdl_window, false);
@@ -126,7 +133,7 @@ static void fill_monitor(void)
 
 /* Started minimised (Windows: STARTUPINFO's show state, test and recording runs on a PC in use):
    the game's window shows minimised without taking the focus (show_window). */
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(SDL_PLATFORM_WINRT)
 static int start_minimised(void)
 {
     STARTUPINFOA si = {sizeof si};

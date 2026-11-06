@@ -18,6 +18,9 @@
 #include <string.h>
 #include <windows.h>
 #include <xmmintrin.h>
+#if defined(SDL_PLATFORM_WINRT)
+#include <SDL3/SDL.h>
+#endif
 
 /* On 64-bit hosts guest_base (guest.h) is defined by port/host64/guest_memory.c, which maps
    guest memory. */
@@ -28,6 +31,14 @@ unsigned long host_last_error(void) { return GetLastError(); }
 /* The program's full path in UTF-8 (SDL's paths are). */
 unsigned host_exe_path(char *out, unsigned size)
 {
+#if defined(SDL_PLATFORM_WINRT)
+    char *pref = SDL_GetPrefPath("DownhillRevived", "DownhillRevived");
+    if (pref) {
+        int k = snprintf(out, size, "%sdhd64.exe", pref);
+        SDL_free(pref);
+        return (k > 0 && (unsigned)k < size) ? (unsigned)k : 0;
+    }
+#endif
     WCHAR wide[MAX_PATH * 4];
     DWORD n = GetModuleFileNameW(NULL, wide, sizeof wide / sizeof *wide);
     int k = n && n < sizeof wide / sizeof *wide && size

@@ -84,7 +84,7 @@ static int game(void *start) {
 }
 int sdl_host_main(int (*game)(void *),void *arg);  /* port/host/sdl_host.c */
 int main(int argc,char **argv) {
-#ifdef _WIN32
+#if defined(_WIN32) && (!defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP))
     SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
 #endif
     Args args={argc,argv};

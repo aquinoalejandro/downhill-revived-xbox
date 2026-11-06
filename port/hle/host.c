@@ -697,7 +697,7 @@ unsigned host_thread_cpu(const char **names, double *seconds, unsigned max)
 unsigned host_thread_cycles(const char **names, uint64_t *cycles, unsigned max)
 {
     unsigned n = 0;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(SDL_PLATFORM_WINRT)
     for (int i = 0; i < named_count && i < NAMED_THREADS && n < max; i++) {
         ULONG64 value;
         if (!named[i].name || !QueryThreadCycleTime(named[i].handle, &value)) continue;
@@ -744,7 +744,9 @@ void host_init(void)
 {
 #ifdef _WIN32
     SetUnhandledExceptionFilter(crashed);
+#if !defined(SDL_PLATFORM_WINRT)
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
     const char *dump = getenv("DHD_DUMP");
     host_thread_name("game");
     DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &game_thread, 0, FALSE,
@@ -1243,6 +1245,24 @@ int host_disc_ready(void)
     static char why[512], message[1536];
     if (iso_from_environment) return 0;
     const char *iso = getenv("DHD_ISO");
+#if defined(SDL_PLATFORM_WINRT)
+    static char auto_iso[HOST_PATH_MAX];
+    if (!iso) {
+        char pref_path[HOST_PATH_MAX];
+        unsigned n = host_exe_path(pref_path, sizeof pref_path);
+        while (n && pref_path[n - 1] != '\\' && pref_path[n - 1] != '/') n--;
+        pref_path[n] = 0;
+        const char *candidates[] = { "SCUS-97177.iso", "downhill.iso", "game.iso", "Downhill Domination.iso" };
+        for (size_t i = 0; i < sizeof candidates / sizeof candidates[0]; i++) {
+            snprintf(auto_iso, sizeof auto_iso, "%s%s", pref_path, candidates[i]);
+            if (host_path_exists(auto_iso)) {
+                iso = auto_iso;
+                host_putenv_s("DHD_ISO", iso);
+                break;
+            }
+        }
+    }
+#endif
     const char *problem = iso ? disc_problem(iso, why, sizeof why) : NULL;
     if (iso && !problem) return 0;
 #ifdef __ANDROID__
@@ -1355,7 +1375,7 @@ static struct {
 } display = {0, 0, 0, 0, 0, 0, 0, 0, 0, -1};
 static volatile double pacing_slack;  /* how much sooner than a period an on-time (steered) picture may come */
 
-#if defined(_WIN64)
+#if defined(_WIN64) && !defined(SDL_PLATFORM_WINRT)
 #include <dwmapi.h>
 /* The primary display's refresh period by its mode (the path whose source is at 0,0), 0 unknown. */
 static double display_nominal(void)
@@ -1426,7 +1446,7 @@ static void display_query(void)
 /* host_pacing_config: the period the pictures keep (EE thread). */
 static double display_period(double period)
 {
-#if defined(_WIN64)
+#if defined(_WIN64) && !defined(SDL_PLATFORM_WINRT)
     static int off = -1;
     if (off < 0) {
         const char *s = host_getenv("DHD_PACE_LOCK");
