@@ -1,97 +1,97 @@
-# Downhill Revived
+# Downhill Revived (Xbox Port)
 
-A PC port of Downhill Domination.
+An Xbox One and Xbox Series X|S native port of *Downhill Domination* running via **Retail Developer Mode**.
 
-Downhill Revived is a native 64-bit Windows port of *Downhill Domination* (PlayStation 2, Incognito
-Entertainment / SCEA, 2003), with experimental builds for Macs with Apple silicon and for 64-bit
-Linux. It is built on a matching decompilation: C/C++ source that compiles back to the original
-game program byte for byte, built for the PC with the PS2 hardware replaced by native code.
+Downhill Revived is a source port of *Downhill Domination* (PlayStation 2, Incognito Entertainment / SCEA, 2003) built on a matching byte-for-byte decompilation. This repository adds native **UWP (Universal Windows Platform) x64** support, allowing the game to run directly on **Xbox One**, **Xbox One S**, **Xbox One X**, and **Xbox Series X|S** in Developer Mode with native Direct3D 12 rendering and Xbox controller support.
 
-**[Download](https://github.com/skuza-oss/downhill-revived/releases/latest)** ·
-**[Discord](https://discord.gg/XrSeTyzfr2)** (news, help and races) ·
-**[Players' guide](docs/PLAYING.md)** (controls, online, texture packs, settings) ·
-**[Support on Ko-fi](https://ko-fi.com/skuza)**
+---
 
-## Features
+## Xbox Features & Compatibility
 
-- A launcher with the settings, updates, release notes and the public online races.
-- A native renderer (Direct3D 12, Vulkan or Metal), 60 fps or more (up to 240) with even frame
-  pacing, 1x to 8x resolution, Hor+ widescreen at any shape, windowed, borderless or fullscreen.
-- Online races for 2 to 10 players (experimental), public or private with a code; after your
-  finish you watch the others ride to the line.
-- PC SETTINGS in the game's own OPTIONS menu, a sharp font, Unlock All, the movies, memory card
-  saves, PCSX2 texture packs, mouse in the menus, Discord Rich Presence.
-- Controllers (Xbox, DualSense, DualShock 4, Switch Pro, 8BitDo and most others) and full
-  keyboard play.
-- Automatic updates that never touch your settings or saves.
+- **Xbox One Tested & Supported:** Runs natively on original Xbox One hardware (1.75 GHz AMD Jaguar CPU) targeting a locked **60 fps** in Game Mode.
+- **DirectX 12 Renderer:** Custom `wgpu-hal` swap chain integration using `CreateSwapChainForCoreWindow` for smooth presentation and minimal input latency.
+- **Xbox Controller Integration:** Full gamepad input, analog steering, vibration and button mapping via SDL3 and `Windows.Gaming.Input`.
+- **Game Mode Memory Access:** Built for Xbox Game Mode, giving the port access to 5 GB of RAM (well above the 1 GB App Mode limit) and dedicated CPU cores.
+- **Automatic Disc Detection:** Drop your clean USA disc image (`SCUS-97177.iso` or `downhill.iso`) into `LocalState` via Xbox Device Portal; the game detects and verifies it automatically on boot.
+- **In-Game Settings:** Full PC SETTINGS accessible directly from the in-game OPTIONS menu (resolution scale, widescreen Hor+, audio, controls).
 
-The full list and the known gaps: [docs/PLAYING.md](docs/PLAYING.md).
+---
 
-## Getting started
+## Installation Guide (Xbox Dev Mode)
 
-1. Download the installer `DownhillRevived-<version>-win-setup.exe` from the
-   [Releases](https://github.com/skuza-oss/downhill-revived/releases/latest) page and run it (no
-   administrator rights needed). It isn't code-signed, so SmartScreen may ask: **More info** >
-   **Run anyway**. Or take `DownhillRevived-<version>-win.zip` and unzip it into a folder you can
-   write to (not Program Files) for a portable copy.
-2. Start Downhill Revived and press PLAY.
-3. The first time, choose your `.iso` of the **USA disc (SCUS-97177)**. It is checked and
-   remembered.
+### Prerequisites
 
-Mac and Linux (experimental): the `-mac-experimental.dmg` (drag the app to Applications) or the
-`-linux-experimental.AppImage` (one file, with the launcher's libraries inside; Steam Deck too),
-or their zips. None of the downloads is signed by a developer certificate:
-[docs/PLAYING.md](docs/PLAYING.md#installing) says how to allow them and where your files go. You
-need Windows 10/11 64-bit (or an Apple silicon Mac, or Linux with glibc 2.35+ and Vulkan) and a
-Direct3D 12 or Vulkan graphics card.
+1. An Xbox console (Xbox One, One S, One X, or Series X|S) set to **Developer Mode**.
+2. PC on the same local network with a modern web browser.
+3. Your own copy of the USA disc image: **Downhill Domination (SCUS-97177)** as an `.iso` file.
 
-Android (experimental): the `-android-experimental.apk` for arm64 phones and tablets on Android 11
-or later, with touch controls; no online races on phones yet. The release page says how to
-install it.
+### Step 1: Deploy the Package
 
-## Legal notice
+1. On your Xbox, open **Dev Home** and note the IP address shown for the **Xbox Device Portal** (e.g., `https://192.168.1.XX:11443`).
+2. On your PC, navigate to that address in your browser (accept the self-signed certificate warning if prompted).
+3. Go to the **Apps** section.
+4. Under **Deploy App**, click **Choose File** and select `DownhillRevived-xbox.appx`.
+5. If prompted for dependencies or certificates, provide `dev_cert.cer`.
+6. Click **Deploy** / **Install** and wait for the upload to complete.
 
-- This is a fan project. It is not made, endorsed or supported by Sony Interactive
-  Entertainment, Incognito Entertainment or anyone who holds rights to the game.
-- This repository and its releases contain **no game data**: no disc image, no game executable
-  or data from it, no IOP modules, no textures, sound, music or movies, and no BIOS. `dhd.exe` is
-  the translated code only; at every start it reads the game's data from your disc image, after
-  checking it is the unchanged original.
-- To play you need your own dump of the USA disc. Other regions and modified images are not
-  supported (why: [docs/findings/100-other-releases.md](docs/findings/100-other-releases.md)).
-- The project sells nothing. Donations on Ko-fi are voluntary and unlock nothing: every release
-  is free and the same for everyone.
+### Step 2: Switch to Game Mode (Crucial!)
 
-## Decompilation progress
+On the console:
+1. In the Dev Home app list, highlight **Downhill Revived**.
+2. Press the **View** button (the two overlapping squares on the Xbox controller).
+3. Change the app type from **App** to **Game**.
+> [!IMPORTANT]
+> This step is required: Game Mode unlocks 5 GB of RAM and dedicated CPU cores instead of the restricted 1 GB App Mode sandbox.
 
-<!-- progress:start -->
-| Region | What | Code matched | Functions |
-|---|---|---|---|
-| crt0 | startup code | 0.00% | 0 / 5 |
-| game | game code | 98.17% | 3439 / 3474 |
-| libgcc | compiler runtime (library, not decompiled) | 0.00% | 0 / 145 |
-| engine | engine (same toolchain as the game) | 92.76% | 1088 / 1119 |
-| sdk | Sony SDK + C/math libraries (not decompiled) | 0.00% | 0 / 802 |
-| handwritten | game/engine functions written in assembly (not decompilable) | 0.00% | 0 / 7 |
-| remnant | dead-strip leftovers of removed functions (not decompilable) | 0.00% | 0 / 138 |
-| **target** | **game + engine: everything there is to decompile** | **97.03%** | **4527 / 4593** |
-| **total** | whole executable, libraries included | **85.76%** | **4527 / 5690** |
-<!-- progress:end -->
+### Step 3: Upload your Disc Image (ISO)
 
-A function counts only when a tool confirms its compiled bytes are identical to retail; what
-"matching" means and how it is checked: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+1. In the Xbox Device Portal on your PC, go to **File Explorer**.
+2. Navigate to:
+   `DevelopmentFiles\WindowsApps\DownhillRevived.Xbox_1.0.0.0_x64__...\LocalState\`
+3. Upload your clean PS2 disc image renamed to:
+   `SCUS-97177.iso` or `downhill.iso`
+4. (Optional) You can also place custom `dhd.ini` configurations or texture packs here.
 
-## Building and contributing
+### Step 4: Play!
 
-Building needs the original game executable from your own disc; nothing here builds without it.
-How to build: [docs/BUILDING.md](docs/BUILDING.md). How to help (decompiling, port fixes,
-testing): [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Launch **Downhill Revived** from Dev Home. The game will automatically detect the disc, initialize the DX12 renderer at fullscreen, and start playing at 60 fps.
 
-## Credits and licence
+---
 
-Built on the work of PCSX2, ps2sdk, SDL, wgpu, WABT, libmpeg2, OpenGOAL, splat, objdiff,
-decomp.me and many others: the full list is in [docs/CREDITS.md](docs/CREDITS.md).
+## Building from Source
 
-[GPL-3.0-or-later](LICENSE). The original game, its data, names and trademarks belong to their
-owners and are not covered by this licence. Code adapted from other projects keeps its own
-notice (see [Credits](docs/CREDITS.md)).
+To build the Xbox UWP package yourself on Windows 10/11:
+
+### Requirements
+- **LLVM / Clang** (`clang-cl`, `lld-link`, `llvm-rc`)
+- **MSVC v143** (Visual Studio 2022 C++ tools with UWP / Windows Store components)
+- **Windows 10/11 SDK** (10.0.26100.0 or compatible)
+- **Rust** (1.97.1 MSVC toolchain)
+- **Python 3.10+** with `ninja` and `splat64`
+
+### Build Steps
+
+1. Extract the original PS2 game executable (`SCUS_971.77`) into `iso/`:
+   ```powershell
+   python tools/split.py
+   ```
+2. Build the WebAssembly game core:
+   ```powershell
+   python port/tools/build_wasm.py
+   ```
+3. Build the host executable for Xbox UWP:
+   ```powershell
+   python port/tools/build_host64.py --target xbox-x64 build/wasm/dhd_core.wasm
+   ```
+4. Package and sign into an `.appx` container:
+   ```powershell
+   python port/tools/package_xbox.py
+   ```
+The output package `build/xbox-x64/DownhillRevived-xbox.appx` and `dev_cert.cer` will be ready for deployment.
+
+---
+
+## Legal Notice
+
+- This is an unofficial fan port based on educational clean-room reverse engineering. It is not endorsed by or affiliated with Sony Interactive Entertainment or Incognito Entertainment.
+- This repository contains **no copyrighted game assets**: no disc images, game executables, textures, audio, video or BIOS files. The game requires your own legitimate dump of the original PlayStation 2 disc (SCUS-97177).
