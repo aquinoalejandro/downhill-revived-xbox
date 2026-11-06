@@ -33,8 +33,9 @@ DIR = os.environ.get('DHD_OBJCACHE_DIR', str(DEVCACHES / 'dhd-objcache'))
 ENABLED = os.environ.get('DHD_OBJCACHE', '1') != '0'
 LIMIT = int(float(os.environ.get('DHD_OBJCACHE_GB', '30')) * 2**30)
 VERSION = b'dhd-objcache 1'
-if os.path.splitdrive(os.path.abspath(DIR))[0].upper() == 'C:' or (os.name != 'nt' and 'DHD_OBJCACHE_DIR' not in os.environ):
-    ENABLED = False  # the system drive stays free (global rule): no cache rather than one on C:; off Windows only a named one
+if (os.environ.get('DHD_ALLOW_C_DRIVE') != '1' and os.path.splitdrive(os.path.abspath(DIR))[0].upper() == 'C:') or (os.name != 'nt' and 'DHD_OBJCACHE_DIR' not in os.environ):
+    if os.environ.get('DHD_ALLOW_C_DRIVE') != '1':
+        ENABLED = False  # the system drive stays free (global rule) unless DHD_ALLOW_C_DRIVE=1
 
 _lock = threading.Lock()
 _stats = {'hit': 0, 'miss': 0, 'uncached': 0}

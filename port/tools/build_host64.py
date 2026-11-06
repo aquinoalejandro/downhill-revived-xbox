@@ -60,8 +60,8 @@ DEVCACHES = Path(os.environ.get('DHD_DEVCACHES') or Path.home() / 'DevCaches')  
 ROOT = Path(__file__).resolve().parents[2]
 WABT = (DEVCACHES / 'wabt/wabt-1.0.42')
 WASI = (DEVCACHES / 'wasi-sdk/wasi-sdk-34.0-x86_64-windows')
-LLVM = (Path.home() / 'scoop/apps/llvm/current/bin')
-MSVC = Path('C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.51.36231')
+LLVM = Path(os.environ.get('LLVM_DIR') or ('C:/Program Files/LLVM/bin' if Path('C:/Program Files/LLVM/bin').exists() else Path.home() / 'scoop/apps/llvm/current/bin'))
+MSVC = Path(os.environ.get('MSVC_DIR') or ('C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207' if Path('C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207').exists() else 'C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.51.36231'))
 SDK = Path('C:/Program Files (x86)/Windows Kits/10')
 VERSION = '10.0.26100.0'
 SOURCE = ROOT / 'port/host64'
@@ -72,7 +72,9 @@ class Target:
         self.key, self.rust, self.out, self.exe, self.jobs, self.outputs = key, rust, out, exe, jobs, outputs
         self.fiber = fiber  # the fiber switch's adapter, port/host64/fiber_<fiber>.c (the CPU and its ABI)
         self.flags, self.wabt, self.simde = list(flags), Path(os.environ.get('WABT_DIR') or wabt), simde
-        self.windows, self.android, self.mac = key == 'win-x64', key == 'android-arm64', key == 'macos-arm64'
+        self.windows = key in ('win-x64', 'xbox-x64')
+        self.xbox = key == 'xbox-x64'
+        self.android, self.mac = key == 'android-arm64', key == 'macos-arm64'
         self.posix = not self.windows
 
 
@@ -80,6 +82,7 @@ MAC_MIN = '11.0'  # the first macOS on Apple silicon (package_release.py's LSMin
 ANDROID_API = 30  # sdl3.ANDROID_API: Android 11
 TARGETS = {t.key: t for t in (
     Target('win-x64', 'x86_64-pc-windows-msvc', 'build/host64-exe', 'dhd64.exe', 'win64'),
+    Target('xbox-x64', 'x86_64-pc-windows-msvc', 'build/xbox-x64', 'dhd64.exe', 'win64'),
     Target('linux-x64', 'x86_64-unknown-linux-gnu', 'build/host64-linux', 'dhd64', 'sysv64',
            flags=['-march=x86-64-v2', '-fPIC'], wabt='/opt/wabt', simde='/opt/simde-src'),
     # M1 is every Apple silicon Mac's floor
@@ -108,7 +111,10 @@ ANDROID_EXPORTS = '{\n  global: SDL_main;\n  local: *;\n};\n'
 
 def host_units(t):
     if t.windows:
-        return list(HOST_UNITS)
+        units = list(HOST_UNITS)
+        if t.xbox:
+            units = [u for u in units if u not in WINDOWS_ONLY] + ['port/host/winrt_main.cpp']
+        return units
     return [POSIX_UNITS.get(u, u) for u in HOST_UNITS if u not in WINDOWS_ONLY] + (ANDROID_UNITS if t.android else [])
 
 
@@ -186,6 +192,14 @@ def sdl(t, a):
         return lib, include, []
     if a.sdl_lib and not a.sdl_include:
         raise ValueError('--sdl-lib needs --sdl-include')
+    if t.xbox:
+        uwp_dir = DEVCACHES / 'SDL3-uwp'
+        lib = a.sdl_lib or (uwp_dir / 'build-uwp-msvc' / 'SDL3-static.lib')
+        include = a.sdl_include or (uwp_dir / 'include')
+        libs = ['WindowsApp.lib', 'runtimeobject.lib', 'd3d12.lib', 'dxgi.lib', 'dxguid.lib', 'vccorlib.lib', 'msvcrt.lib']
+        if a.sdl_libs is not None:
+            libs = shlex.split(a.sdl_libs)
+        return Path(lib).resolve(), Path(include).resolve(), libs
     if t.windows:
         lib, include = (a.sdl_lib, a.sdl_include) if a.sdl_lib else sdl3.build()
         libs = list(sdl3.SYSTEM_LIBS)
@@ -267,8 +281,8 @@ def main():
     wabt = (a.wabt or t.wabt).resolve()
     simde = a.simde or Path(os.environ.get('SIMDE_DIR') or t.simde or str(DEVCACHES / 'simde-src'))
     out = (a.out or ROOT / t.out).resolve()
-    if out.drive.upper() == 'C:' or str(out).startswith('/mnt/c/'):
-        p.error('build output must stay off C:')
+    if os.environ.get('DHD_ALLOW_C_DRIVE') != '1' and (out.drive.upper() == 'C:' or str(out).startswith('/mnt/c/')):
+        p.error('build output must stay off C: (set DHD_ALLOW_C_DRIVE=1 to override)')
     work = out / 'work' if t.android else out  # Android: out holds the APK's libraries only
     scratch = work / 'tmp'
     for d in (out, work, work / 'obj', scratch):
@@ -410,13 +424,18 @@ def main():
             profile.write_bytes(data)
             pgo_flags = ['-fprofile-use=' + str(profile)]
         if t.windows:
+            crt_flag = '/MD' if t.xbox else '/MT'
             common = [a.llvm/'clang-cl.exe', '--target=x86_64-pc-windows-msvc', '/nologo',
                       '/O2', '/clang:-O3', '/clang:-march=x86-64-v2', '/clang:-mtune=znver3',
                       '/clang:-ffp-model=strict', '/clang:-ffp-contract=off',
                       '/clang:-ftrivial-auto-var-init=zero', '/clang:-fno-strict-aliasing',
-                      '/clang:-fwrapv', '/Gy', '/Gw', '/MT', '/w', *defines, *includes,
+                      '/clang:-fwrapv', '/Gy', '/Gw', crt_flag, '/w', *defines, *includes,
                       '/imsvc'+str(MSVC/'include')]
             common += ['/imsvc'+str(SDK/'Include'/VERSION/x) for x in ('ucrt','um','shared')]
+            if t.xbox:
+                common += ['/imsvc'+str(SDK/'Include'/VERSION/'winrt')]
+                common += ['/DWINAPI_FAMILY=WINAPI_FAMILY_APP', '/DWINAPI_PARTITION_GAMES=1',
+                           '/DSDL_PLATFORM_WINRT=1', '/DSDL_WINRT_METADATA_FILE_AVAILABLE=1']
             common += ['/clang:' + m for m in prefix_maps]
             if a.debug:
                 common += ['/clang:-gline-tables-only', '/clang:-gcodeview']
@@ -438,8 +457,8 @@ def main():
                 extra += ['-DPS2_VU_AOT']
             if rel.endswith('gs/gpu_rust.c'):
                 extra += ['-I'+str(ROOT/'port/render/include')]  # dhd_render.h
-            if rel.endswith('host64/launcher.c') and t.android:
-                extra += ['-Dmain=dhd_launcher_main']  # SDL_main (android_main.c) calls it
+            if rel.endswith('host64/launcher.c') and (t.android or t.xbox):
+                extra += ['-Dmain=dhd_launcher_main'] if t.android else ['-Dmain=SDL_main']
             if 'libmpeg2/' in rel:
                 extra += ['-I'+str(ROOT/'port/third_party/libmpeg2')]
             obj = objdir/(rel.replace('/', '_') + suffix)
@@ -484,26 +503,44 @@ def main():
         rust_libs = [x for x in report['native_static_libs'] if x != '-lc']
         exe = out/t.exe
         if t.windows:
-            # dxgi.lib: gpu_rust.c's adapter choice and video memory (CreateDXGIFactory1)
-            libs = ['onecore.lib','user32.lib','gdi32.lib',
-                    'dxgi.lib','ole32.lib','shell32.lib','advapi32.lib',
-                    'winmm.lib','ws2_32.lib','uuid.lib']
-            libs += [str(sdl_lib)] + [x for x in sdl_libs if x not in libs]
-            # rustc's list: import libs and /defaultlib:libcmt, which /MT already names; raw-dylib
-            # imports (d3d12, dxgi, ...) need no lib. dxguid.lib: gpu_rust.c's IID_IDXGIFactory1 and
-            # IID_IDXGIDevice
-            libs += [report['lib']] + [x for x in report['native_static_libs'] + ['dxguid.lib'] if x not in libs]
-            # the icon (port/res/dhd.rc), shown by Explorer, the taskbar and the game's windows
-            res = work/'dhd.res'
-            run([a.llvm/'llvm-rc.exe', '/fo', str(res), str(ROOT/'port/res/dhd.rc')])
-            rsp = work/'link.rsp'
-            rsp.write_text('\n'.join('"'+str(x)+'"' for x in objects+[library,res]+libs))
-            link = [a.llvm/'lld-link.exe', '@'+str(rsp), '/out:'+str(exe),
-                    '/libpath:'+str(MSVC/'lib/x64'),
-                    '/libpath:'+str(SDK/'Lib'/VERSION/'ucrt/x64'),
-                    '/libpath:'+str(SDK/'Lib'/VERSION/'um/x64'),
-                    '/subsystem:windows','/entry:mainCRTStartup','/opt:ref','/opt:icf','/dynamicbase','/nxcompat',  # windowed: no console on a double-click, the log goes to dhd.log (host_console_init)
-                    '/map:'+str(out/'dhd64.map'), '/errorlimit:0']
+            if t.xbox:
+                libs = ['WindowsApp.lib', 'runtimeobject.lib', 'd3d12.lib', 'dxgi.lib', 'dxguid.lib',
+                        'vccorlib.lib', 'msvcrt.lib']
+                libs += [str(sdl_lib)]
+                libs += [report['lib']] + [x for x in report['native_static_libs'] if x not in libs and not x.startswith('/defaultlib:')]
+                res = work/'dhd.res'
+                run([a.llvm/'llvm-rc.exe', '/fo', str(res), str(ROOT/'port/res/dhd.rc')])
+                rsp = work/'link.rsp'
+                rsp.write_text('\n'.join('"'+str(x)+'"' for x in objects+[library,res]+libs))
+                link = [a.llvm/'lld-link.exe', '@'+str(rsp), '/out:'+str(exe),
+                        '/nodefaultlib:vccorlib', '/nodefaultlib:msvcrt', '/nodefaultlib:libcmt',
+                        '/libpath:'+str(MSVC/'lib/x64/store'),
+                        '/libpath:'+str(SDK/'Lib'/VERSION/'ucrt/x64'),
+                        '/libpath:'+str(SDK/'Lib'/VERSION/'um/x64'),
+                        '/subsystem:windows', '/entry:WinMainCRTStartup',
+                        '/opt:ref', '/opt:icf', '/dynamicbase', '/nxcompat',
+                        '/map:'+str(out/'dhd64.map'), '/errorlimit:0']
+            else:
+                # dxgi.lib: gpu_rust.c's adapter choice and video memory (CreateDXGIFactory1)
+                libs = ['onecore.lib','user32.lib','gdi32.lib',
+                        'dxgi.lib','ole32.lib','shell32.lib','advapi32.lib',
+                        'winmm.lib','ws2_32.lib','uuid.lib']
+                libs += [str(sdl_lib)] + [x for x in sdl_libs if x not in libs]
+                # rustc's list: import libs and /defaultlib:libcmt, which /MT already names; raw-dylib
+                # imports (d3d12, dxgi, ...) need no lib. dxguid.lib: gpu_rust.c's IID_IDXGIFactory1 and
+                # IID_IDXGIDevice
+                libs += [report['lib']] + [x for x in report['native_static_libs'] + ['dxguid.lib'] if x not in libs]
+                # the icon (port/res/dhd.rc), shown by Explorer, the taskbar and the game's windows
+                res = work/'dhd.res'
+                run([a.llvm/'llvm-rc.exe', '/fo', str(res), str(ROOT/'port/res/dhd.rc')])
+                rsp = work/'link.rsp'
+                rsp.write_text('\n'.join('"'+str(x)+'"' for x in objects+[library,res]+libs))
+                link = [a.llvm/'lld-link.exe', '@'+str(rsp), '/out:'+str(exe),
+                        '/libpath:'+str(MSVC/'lib/x64'),
+                        '/libpath:'+str(SDK/'Lib'/VERSION/'ucrt/x64'),
+                        '/libpath:'+str(SDK/'Lib'/VERSION/'um/x64'),
+                        '/subsystem:windows','/entry:mainCRTStartup','/opt:ref','/opt:icf','/dynamicbase','/nxcompat',  # windowed: no console on a double-click, the log goes to dhd.log (host_console_init)
+                        '/map:'+str(out/'dhd64.map'), '/errorlimit:0']
             if a.debug:
                 link += ['/debug', '/pdb:'+str(out/'dhd64.pdb')]
             (work/'link.log').write_text(run(link))

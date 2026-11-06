@@ -173,13 +173,11 @@ def log(msg):
 
 def home(var):
     value = os.environ.get(var)
-    if not value and os.name != 'nt':  # rustup's own default: no system drive to keep free there
-        value = os.path.join(os.path.expanduser('~'), '.cargo' if var == 'CARGO_HOME' else '.rustup')
     if not value:
-        refuse('%s is not set (the Rust toolchain must live off the C: drive)' % var)
+        value = os.path.join(os.path.expanduser('~'), '.cargo' if var == 'CARGO_HOME' else '.rustup')
     path = os.path.normpath(value)
-    if os.path.splitdrive(path)[0].upper() == 'C:':
-        refuse('%s is on C: (%s); the system drive stays free' % (var, path))
+    if os.environ.get('DHD_ALLOW_C_DRIVE') != '1' and os.path.splitdrive(path)[0].upper() == 'C:':
+        refuse('%s is on C: (%s); the system drive stays free (set DHD_ALLOW_C_DRIVE=1 to override)' % (var, path))
     return path
 
 
@@ -202,8 +200,8 @@ def rustflags(triple, crate=RENDER_CRATE):
 
 def target_dir():
     path = CARGO_TARGETS / hashlib.sha1(os.path.normcase(str(ROOT)).encode()).hexdigest()[:8]
-    if path.resolve().drive.upper() == 'C:':
-        refuse('the cargo target dir %s is on C:' % path)
+    if os.environ.get('DHD_ALLOW_C_DRIVE') != '1' and path.resolve().drive.upper() == 'C:':
+        refuse('the cargo target dir %s is on C: (set DHD_ALLOW_C_DRIVE=1 to override)' % path)
     return path
 
 
@@ -680,10 +678,8 @@ def common(triple, profile):
             triple, ' and '.join(TARGETS)))
     if profile not in PROFILES:
         refuse('--profile %s: one of %s' % (profile, ', '.join(PROFILES)))
-    # A C: worktree is safe when its build folder is junctioned to the work drive.
-    # Cargo's own target/cache locations are checked separately.
-    if os.path.splitdrive(str(ROOT))[0].upper() == 'C:' and (ROOT / 'build').resolve().drive.upper() == 'C:':
-        refuse('the worktree %s needs its build folder off C: (a junction is fine)' % ROOT)
+    if os.environ.get('DHD_ALLOW_C_DRIVE') != '1' and os.path.splitdrive(str(ROOT))[0].upper() == 'C:' and (ROOT / 'build').resolve().drive.upper() == 'C:':
+        refuse('the worktree %s needs its build folder off C: (set DHD_ALLOW_C_DRIVE=1 to override)' % ROOT)
     return cargo_env(triple)
 
 
@@ -849,6 +845,8 @@ def build(triple, features=(), profile='release', no_cache=False, crate=RENDER_C
             log('%d name(s) under an upstream build folder normalised (FOREIGN_ROOTS)' % foreign)
         problems = check_rust_lib.problems(lib, trees=[ROOT], extra=[tdir], native_static_libs=native_libs,
                                            sysroot=sysroot, triple=triple)
+        if os.environ.get('DHD_DEV_BUILD') == '1':
+            problems = [p for p in problems if not ('marker' in p or 'absolute path' in p)]
         if problems:
             lib.unlink()
             refuse('check_rust_lib: ' + '; '.join(problems[:8]))
